@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grand Blackjack - Elite</title>
+    <style>
+        :root { --neon-blue: #00a2ff; --neon-purple: #9d00ff; --gold: #ffcf4b; --danger: #ff4b5c; --bg: #050507; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; background: radial-gradient(circle at center, #0f1015 0%, #050507 100%); }
+        .header { padding: 15px 20px; background: rgba(0,0,0,0.8); border-bottom: 1px solid var(--neon-blue); display: flex; justify-content: space-between; align-items: center; }
+        #user-balance { font-size: 1.6rem; font-weight: 700; color: #fff; }
+
+        /* BLACKJACK TABLE */
+        .game-container {
+            height: 50vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.5s ease;
+            position: relative;
+        }
+        .game-container.zoom { transform: scale(1.15); }
+
+        .table-felt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 92%;
+            height: 88%;
+            background: radial-gradient(ellipse at center, #0d5c2e 0%, #073d1c 60%, #041f0e 100%);
+            border-radius: 50% / 30%;
+            border: 3px solid #1a8a4a;
+            box-shadow:
+                0 0 0 5px #0a3d1a,
+                0 0 20px rgba(0, 200, 80, 0.25),
+                0 0 50px rgba(0, 162, 255, 0.08),
+                inset 0 0 40px rgba(0,0,0,0.5);
+            z-index: 0;
+        }
+
+        /* Neon rim glow on table */
+        .table-felt::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50% / 30%;
+            border: 2px solid rgba(0, 200, 100, 0.18);
+            box-shadow: 0 0 18px rgba(0, 200, 100, 0.18), 0 0 40px rgba(0, 162, 255, 0.10);
+            pointer-events: none;
+        }
+
+        /* Dealer arc label */
+        .dealer-label {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            letter-spacing: 4px;
+            color: rgba(255,255,255,0.18);
+            text-transform: uppercase;
+            z-index: 2;
+        }
+
+        /* Center ring on table */
+        .table-center-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 38%;
+            height: 30%;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.07);
+            z-index: 1;
+        }
+
+        .cards-zone {
+            display: flex;
+            gap: 10px;
+            min-height: 100px;
+            margin: 10px 0;
+            position: relative;
+            z-index: 2;
+        }
+        .card { width: 65px; height: 95px; background: #f0f0f0; color: black; border-radius: 6px; padding: 5px; display: flex; flex-direction: column; justify-content: space-between; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .card.red { color: var(--danger); }
+
+        #status-text {
+            font-size: 1.1rem;
+            color: var(--gold);
+            letter-spacing: 3px;
+            font-weight: bold;
+            position: relative;
+            z-index: 2;
+        }
+
+        .controls { padding: 20px; background: rgba(20, 20, 25, 0.9); border-radius: 25px 25px 0 0; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn { padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; text-transform: uppercase; }
+        .btn-main { background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple)); color: white; width: 100%; }
+        .btn-sec { background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--neon-blue); }
+        .page { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.98); z-index: 1000; display: none; padding: 25px; box-sizing: border-box; backdrop-filter: blur(10px); }
+        .page.active { display: block; }
+        input { width: 100%; padding: 14px; background: #111; border: 1px solid #333; color: white; border-radius: 8px; margin: 10px 0; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div><span id="user-balance">0.00</span> <small style="color:var(--neon-blue)">USDT</small></div>
+    <div style="display:flex; gap:10px;">
+        <button class="btn btn-sec" style="padding:8px 15px; font-size:11px;" onclick="openPage('dep-page')">DEPOSIT</button>
+        <button class="btn btn-sec" style="padding:8px 15px; font-size:11px; border-color:var(--neon-purple);" onclick="openPage('with-page')">WITHDRAW</button>
+    </div>
+</div>
+
+<div id="game-view" class="game-container">
+    <!-- Blackjack table felt -->
+    <div class="table-felt">
+        <div class="dealer-label">Dealer</div>
+        <div class="table-center-ring"></div>
+    </div>
+
+    <div id="dealer-cards" class="cards-zone"></div>
+    <div id="status-text">GRAND BLACKJACK</div>
+    <div id="player-cards" class="cards-zone"></div>
+</div>
+
+<div class="controls">
+    <div id="ui-bet">
+        <div style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
+            <button class="btn btn-sec" onclick="setBet(10)">10</button>
+            <button class="btn btn-sec" onclick="setBet(50)">50</button>
+            <button class="btn btn-sec" onclick="setBet(100)">100</button>
+        </div>
+        <button class="btn btn-main" onclick="startGame()">BET ($<span id="bet-display">50</span>)</button>
+    </div>
+    <div id="ui-actions" style="display:none; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+        <button class="btn btn-sec" onclick="hit()">HIT</button>
+        <button class="btn btn-main" style="background:var(--neon-purple)" onclick="double()">DOUBLE</button>
+        <button class="btn btn-sec" style="border-color:var(--danger)" onclick="stand()">STAND</button>
+    </div>
+</div>
+
+<div id="dep-page" class="page">
+    <h2 style="color:var(--neon-blue)">DEPOSIT FUNDS</h2>
+    <p style="font-size:12px; color:#aaa;">Network: ERC-20 (USDT)</p>
+    <div style="background:#000; padding:15px; border-radius:8px; color:#fff; border:1px solid var(--neon-blue); font-family:monospace; margin-bottom:20px; font-size:11px; word-break:break-all;">0x891c4B9461A89CC53DEb410AC93c7A7ACb9C1220</div>
+    <input type="number" id="dep-amount" placeholder="Amount Sent (USDT)">
+    <input type="file" id="dep-screenshot" accept="image/*" style="color:white; margin-bottom:10px;">
+    <button class="btn btn-main" onclick="reqAction('DEP')">SUBMIT DEPOSIT</button>
+    <button class="btn" style="color:#666; width:100%; margin-top:10px;" onclick="closePages()">CANCEL</button>
+</div>
+
+<div id="with-page" class="page">
+    <h2 style="color:var(--neon-purple)">WITHDRAW FUNDS</h2>
+    <p style="color:var(--danger); font-size:12px;">* Minimum withdrawal: 17 USDT</p>
+    <input type="text" id="with-addr" placeholder="Your ERC-20 Wallet Address">
+    <input type="number" id="with-amt" placeholder="Amount">
+    <button class="btn btn-main" style="background:var(--neon-purple)" onclick="reqAction('WITH')">REQUEST WITHDRAWAL</button>
+    <button class="btn" style="color:#666; width:100%; margin-top:10px;" onclick="closePages()">CANCEL</button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBG0AGTRFPXAObw0WYO8iiyLxJ80u3ot2o",
+        authDomain: "grand-76631.firebaseapp.com",
+        projectId: "grand-76631",
+        databaseURL: "https://grand-76631-default-rtdb.firebaseio.com",
+        storageBucket: "grand-76631.firebasestorage.app",
+        messagingSenderId: "503551215772",
+        appId: "1:503551215772:web:a49f7d8c1453b8aed54559"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let myID = localStorage.getItem('casino_uid') || 'User_' + Math.floor(Math.random()*90000);
+    localStorage.setItem('casino_uid', myID);
+
+    let balance = 0, currentBet = 50, activeBet = 0, deck = [], pHand = [], dHand = [];
+
+    onValue(ref(db, `users/${myID}/balance`), (snap) => {
+        balance = snap.val() || 0;
+        document.getElementById('user-balance').innerText = balance.toFixed(2);
+    });
+
+    window.setBet = (n) => { currentBet = n; document.getElementById('bet-display').innerText = n; }
+    window.openPage = (id) => document.getElementById(id).classList.add('active');
+    window.closePages = () => document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+    window.startGame = () => {
+        if(balance < currentBet) return alert("Insufficient Balance!");
+        activeBet = currentBet;
+        set(ref(db, `users/${myID}/balance`), balance - activeBet);
+        document.getElementById('game-view').classList.add('zoom');
+        deck = createDeck(); pHand = [deck.pop(), deck.pop()]; dHand = [deck.pop()];
+        render(); document.getElementById('ui-bet').style.display = 'none'; document.getElementById('ui-actions').style.display = 'grid';
+    };
+
+    window.hit = () => { pHand.push(deck.pop()); render(); if(getScore(pHand) > 21) finalize("BUSTED!"); };
+    window.double = () => { if(balance < activeBet) return alert("Low balance!"); set(ref(db, `users/${myID}/balance`), balance - activeBet); activeBet *= 2; pHand.push(deck.pop()); render(); if(getScore(pHand) > 21) finalize("BUSTED!"); else stand(); };
+    window.stand = () => { while(getScore(dHand) < 17) dHand.push(deck.pop()); render(); let ps = getScore(pHand), ds = getScore(dHand); if(ds > 21 || ps > ds) finalize("YOU WIN!", activeBet * 2); else if(ps < ds) finalize("DEALER WINS", 0); else finalize("PUSH", activeBet); };
+
+    function finalize(msg, win = 0) {
+        if(win > 0) set(ref(db, `users/${myID}/balance`), balance + win);
+        document.getElementById('status-text').innerText = msg;
+        setTimeout(() => { document.getElementById('game-view').classList.remove('zoom'); document.getElementById('ui-bet').style.display = 'block'; document.getElementById('ui-actions').style.display = 'none'; document.getElementById('status-text').innerText = "GRAND BLACKJACK"; }, 1800);
+    }
+
+    window.reqAction = (type) => {
+        const amt = parseFloat(document.getElementById(type === 'DEP' ? 'dep-amount' : 'with-amt').value);
+        if(type === 'WITH' && (amt < 17 || amt > balance)) return alert("Invalid amount or min 17!");
+        push(ref(db, 'requests'), { uid: myID, type, amt, addr: document.getElementById('with-addr')?.value || 'N/A', time: Date.now() });
+        alert("Request sent!"); closePages();
+    };
+
+    function createDeck() { const s = ['♠', '♣', '♥', '♦'], r = ['2','3','4','5','6','7','8','9','10','J','Q','K','A']; let d = []; s.forEach(v => r.forEach(x => d.push({r:x, s:v}))); return d.sort(() => Math.random() - 0.5); }
+    function getScore(h) { let s = 0, a = 0; h.forEach(c => { if(['J','Q','K'].includes(c.r)) s+=10; else if(c.r==='A'){s+=11; a++;} else s+=parseInt(c.r); }); while(s > 21 && a > 0){ s-=10; a--; } return s; }
+    function render() { const pz = document.getElementById('player-cards'), dz = document.getElementById('dealer-cards'); pz.innerHTML = ''; dz.innerHTML = ''; pHand.forEach(c => pz.innerHTML += `<div class="card ${c.s==='♥'||c.s==='♦'?'red':''}"><div>${c.r}</div><div>${c.s}</div></div>`); dHand.forEach(c => dz.innerHTML += `<div class="card ${c.s==='♥'||c.s==='♦'?'red':''}"><div>${c.r}</div><div>${c.s}</div></div>`); }
+</script>
+</body>
+</html>
