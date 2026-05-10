@@ -2,78 +2,146 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Grand Admin Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Admin - Control Center</title>
     <style>
-        body { background: #050507; color: white; font-family: sans-serif; padding: 20px; }
-        .request-card { background: #111; border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
-        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn-approve { background: #00a2ff; color: white; }
-        .btn-delete { background: #ff4b5c; color: white; margin-left: 10px; }
+        :root { --blue: #00a2ff; --purple: #9d00ff; --danger: #ff4b5c; --bg: #050507; --card-bg: #111116; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
+        h1 { color: var(--blue); text-transform: uppercase; letter-spacing: 2px; border-bottom: 2px solid var(--blue); padding-bottom: 10px; }
+        
+        /* Login Area */
+        #auth-section { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; }
+        #admin-pass { padding: 15px; width: 250px; background: #222; border: 1px solid var(--blue); color: white; border-radius: 8px; font-size: 16px; text-align: center; margin-bottom: 15px; }
+        
+        /* Dashboard */
+        #admin-content { display: none; max-width: 800px; margin: 0 auto; }
+        .request-card { background: var(--card-bg); border: 1px solid #333; padding: 20px; border-radius: 12px; margin-bottom: 15px; transition: 0.3s; position: relative; overflow: hidden; }
+        .request-card:hover { border-color: var(--blue); box-shadow: 0 0 15px rgba(0, 162, 255, 0.2); }
+        .type-badge { position: absolute; top: 0; right: 0; padding: 5px 15px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .dep-badge { background: var(--blue); color: white; }
+        .with-badge { background: var(--purple); color: white; }
+        
+        code { background: #000; padding: 5px 10px; border-radius: 4px; color: #ffcf4b; display: block; margin: 10px 0; word-break: break-all; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
+        .btn-approve { background: #28a745; color: white; margin-right: 10px; }
+        .btn-approve:hover { background: #218838; }
+        .btn-delete { background: var(--danger); color: white; }
+        .btn-delete:hover { background: #c82333; }
+        .btn-login { background: var(--blue); color: white; width: 250px; }
+
+        .no-data { text-align: center; color: #666; margin-top: 50px; }
     </style>
 </head>
 <body>
-    <h1>Grand Casino Admin</h1>
+
     <div id="auth-section">
-        <input type="password" id="admin-pass" placeholder="Enter Admin Key">
-        <button class="btn btn-approve" onclick="login()">Login</button>
+        <h1>Admin Login</h1>
+        <input type="password" id="admin-pass" placeholder="Enter Secret Key">
+        <button class="btn btn-login" onclick="login()">Access Dashboard</button>
     </div>
-    <div id="admin-content" style="display:none;">
-        <h3>Pending Requests</h3>
-        <div id="list"></div>
+
+    <div id="admin-content">
+        <h1>Pending Requests</h1>
+        <div id="list">
+            <p class="no-data">Loading or no pending requests...</p>
+        </div>
     </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+    // Grand Casino Firebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyBG0AGTRFPXAObw0WYO8iiyLxJ80u3ot2o",
         authDomain: "grand-76631.firebaseapp.com",
         projectId: "grand-76631",
-        databaseURL: "https://grand-76631-default-rtdb.firebaseio.com"
+        databaseURL: "https://grand-76631-default-rtdb.firebaseio.com",
+        storageBucket: "grand-76631.firebasestorage.app",
+        messagingSenderId: "503551215772",
+        appId: "1:503551215772:web:a49f7d8c1453b8aed54559"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // Login Function
     window.login = () => {
-        if(document.getElementById('admin-pass').value === "davudənsevdiyimaddı") {
+        const pass = document.getElementById('admin-pass').value;
+        if(pass === "davudənsevdiyimaddı") {
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('admin-content').style.display = 'block';
-            loadReqs();
-        } else { alert("Wrong Key!"); }
+            startListening();
+        } else {
+            alert("Wrong Secret Key, Ilham bey!");
+        }
     };
 
-    function loadReqs() {
+    // Load Data
+    function startListening() {
         onValue(ref(db, 'requests'), (snap) => {
             const list = document.getElementById('list');
             list.innerHTML = "";
-            snap.forEach(c => {
-                const r = c.val();
+            
+            if(!snap.exists()) {
+                list.innerHTML = '<p class="no-data">Hələ ki, yeni sorğu yoxdur.</p>';
+                return;
+            }
+
+            snap.forEach(child => {
+                const r = child.val();
+                const key = child.key;
                 const div = document.createElement('div');
                 div.className = "request-card";
+                
+                const badgeClass = r.type === 'DEP' ? 'dep-badge' : 'with-badge';
+                const typeText = r.type === 'DEP' ? 'DEPOZİT' : 'ÇIXARIŞ';
+
                 div.innerHTML = `
-                    <strong>${r.type}</strong> | Amount: ${r.amt} | User: ${r.uid} <br>
-                    <small>Addr: ${r.addr}</small><br><br>
-                    <button class="btn btn-approve" onclick="approveReq('${c.key}','${r.uid}',${r.amt},'${r.type}')">APPROVE</button>
-                    <button class="btn btn-delete" onclick="deleteReq('${c.key}')">DELETE</button>
+                    <div class="type-badge ${badgeClass}">${typeText}</div>
+                    <p><strong>Məbləğ:</strong> ${r.amt} USDT</p>
+                    <p><strong>İstifadəçi:</strong> ${r.uid}</p>
+                    <p><strong>Cüzdan Adresi:</strong></p>
+                    <code>${r.addr}</code>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-approve" onclick="approveReq('${key}','${r.uid}', ${r.amt}, '${r.type}')">Təsdiqlə</button>
+                        <button class="btn btn-delete" onclick="deleteReq('${key}')">Sil</button>
+                    </div>
                 `;
                 list.appendChild(div);
             });
         });
     }
 
+    // Approve Logic
     window.approveReq = async (key, uid, amt, type) => {
+        if(!confirm("Əminsiniz? Bu əməliyyat istifadəçinin balansını dəyişəcək.")) return;
+
         const userRef = ref(db, `users/${uid}/balance`);
-        const snap = await get(userRef);
-        let b = snap.val() || 0;
-        await set(userRef, type === 'DEP' ? b + amt : b - amt);
+        const snapshot = await get(userRef);
+        let currentBalance = snapshot.val() || 0;
+
+        let newBalance;
+        if(type === 'DEP') {
+            newBalance = currentBalance + amt; // Depozitdə balans artır
+        } else {
+            newBalance = currentBalance - amt; // Çıxarışda balans azalır (artıq azalıbsa silmək olar)
+            if(newBalance < 0) newBalance = 0;
+        }
+
+        // Balansı yenilə və sorğunu sil
+        await set(userRef, newBalance);
         await set(ref(db, `requests/${key}`), null);
-        alert("Done!");
+        alert("Əməliyyat uğurla tamamlandı!");
     };
 
-    window.deleteReq = (key) => set(ref(db, `requests/${key}`), null);
+    // Delete Logic
+    window.deleteReq = async (key) => {
+        if(confirm("Bu sorğunu silmək istədiyinizə əminsiniz?")) {
+            await set(ref(db, `requests/${key}`), null);
+        }
+    };
 </script>
 </body>
 </html>
-
