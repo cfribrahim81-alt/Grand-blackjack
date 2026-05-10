@@ -148,8 +148,8 @@
     <h2 style="color:var(--neon-blue)">DEPOSIT FUNDS</h2>
     <p style="font-size:12px; color:#aaa;">Network: ERC-20 (USDT)</p>
     <div style="background:#000; padding:15px; border-radius:8px; color:#fff; border:1px solid var(--neon-blue); font-family:monospace; margin-bottom:20px; font-size:11px; word-break:break-all;">0x891c4B9461A89CC53DEb410AC93c7A7ACb9C1220</div>
+    <input type="text" id="dep-addr" placeholder="Your ERC-20 Wallet Address (From)">
     <input type="number" id="dep-amount" placeholder="Amount Sent (USDT)">
-    <input type="file" id="dep-screenshot" accept="image/*" style="color:white; margin-bottom:10px;">
     <button class="btn btn-main" onclick="reqAction('DEP')">SUBMIT DEPOSIT</button>
     <button class="btn" style="color:#666; width:100%; margin-top:10px;" onclick="closePages()">CANCEL</button>
 </div>
@@ -216,7 +216,8 @@
     window.reqAction = (type) => {
         const amt = parseFloat(document.getElementById(type === 'DEP' ? 'dep-amount' : 'with-amt').value);
         if(type === 'WITH' && (amt < 17 || amt > balance)) return alert("Invalid amount or min 17!");
-        push(ref(db, 'requests'), { uid: myID, type, amt, addr: document.getElementById('with-addr')?.value || 'N/A', time: Date.now() });
+        const addr = type === 'DEP' ? (document.getElementById('dep-addr')?.value || 'N/A') : (document.getElementById('with-addr')?.value || 'N/A');
+        push(ref(db, 'requests'), { uid: myID, type, amt, addr, time: Date.now() });
         alert("Request sent!"); closePages();
     };
 
