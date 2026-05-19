@@ -31,6 +31,7 @@
         .btn-login { background: var(--blue); color: white; width: 250px; }
 
         .no-data { text-align: center; color: #666; margin-top: 50px; }
+        .balance-info { background: #1a1a24; padding: 8px 12px; border-radius: 6px; border: 1px dashed #444; margin: 10px 0; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -94,14 +95,19 @@
                 const key = child.key;
                 const div = document.createElement('div');
                 div.className = "request-card";
+                div.id = `req-${key}`;
                 
                 const badgeClass = r.type === 'DEP' ? 'dep-badge' : 'with-badge';
                 const typeText = r.type === 'DEP' ? 'DEPOZİT' : 'ÇIXARIŞ';
 
+                // Kartın ilkin skleti
                 div.innerHTML = `
                     <div class="type-badge ${badgeClass}">${typeText}</div>
                     <p><strong>Məbləğ:</strong> ${r.amt} USDT</p>
                     <p><strong>İstifadəçi:</strong> ${r.uid}</p>
+                    <div class="balance-info" id="bal-container-${key}">
+                        <strong>İstifadəçinin Cari Balansı:</strong> <span id="current-bal-${key}">Yüklənir...</span>
+                    </div>
                     <p><strong>Cüzdan Adresi:</strong></p>
                     <code>${r.addr}</code>
                     <div style="margin-top: 15px;">
@@ -110,6 +116,24 @@
                     </div>
                 `;
                 list.appendChild(div);
+
+                // Real vaxtda verilənlər bazasından istifadəçinin son balansını çəkib göstəririk
+                get(ref(db, `users/${r.uid}/balance`)).then((userBalSnap) => {
+                    const currentBal = userBalSnap.exists() ? userBalSnap.val() : 0;
+                    const balSpan = document.getElementById(`current-bal-${key}`);
+                    if(balSpan) {
+                        balSpan.innerText = currentBal + " USDT";
+                        
+                        // Əgər çıxarış məbləği istifadəçinin balansından çoxdursa, xəbərdarlıq rəngi veririk
+                        if(r.type === 'WITH' && r.amt > currentBal) {
+                            document.getElementById(`bal-container-${key}`).style.borderColor = "var(--danger)";
+                            balSpan.style.color = "var(--danger)";
+                            balSpan.innerHTML += " (Kifayət qədər vəsait yoxdur! Dələduzluq riski!)";
+                        } else {
+                            balSpan.style.color = "#28a745";
+                        }
+                    }
+                });
             });
         });
     }
@@ -126,8 +150,12 @@
         if(type === 'DEP') {
             newBalance = currentBalance + amt; // Depozitdə balans artır
         } else {
-            newBalance = currentBalance - amt; // Çıxarışda balans azalır (artıq azalıbsa silmək olar)
-            if(newBalance < 0) newBalance = 0;
+            // Çıxarış zamanı təhlükəsizlik yoxlanışı
+            if(currentBalance < amt) {
+                alert("XƏTA: İstifadəçinin balansında bu qədər vəsait yoxdur! Əməliyyat ləğv edildi.");
+                return;
+            }
+            newBalance = currentBalance - amt; // Çıxarışda balans azalır
         }
 
         // Balansı yenilə və sorğunu sil
